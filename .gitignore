@@ -52,6 +52,10 @@ data/output/*.xlsx
 !data/output/sample_output_report.xlsx
 !data/output/.gitkeep
 
+# Cloud Storage and Ephemeral Uploads
+data/cloud_storage/
+data/uploads/
+
 # Temporary and Lock Files
 ~$*
 *.tmp
