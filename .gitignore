@@ -52,6 +52,11 @@ data/output/*.xlsx
 !data/output/sample_output_report.xlsx
 !data/output/.gitkeep
 
+# Temporary and Lock Files
+~$*
+*.tmp
+*.temp
+
 # Operating System Files
 .DS_Store
 .DS_Store?

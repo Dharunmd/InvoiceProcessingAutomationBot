@@ -19,7 +19,7 @@ Engineered for seamless standalone CLI operations and native integration with en
 - [🏗️ System Architecture](#️-system-architecture)
 - [📋 Validation Rules Engine](#-validation-rules-engine)
 - [📊 Output Report Specifications](#-output-report-specifications)
-- [📸 Screenshots & Visual Tour](#-screenshots--visual-tour)
+- [📸 Project Screenshots](#-project-screenshots)
 - [📁 Project Structure](#-project-structure)
 - [⚙️ Prerequisites & Installation](#️-prerequisites--installation)
 - [🚀 Execution Modes](#-execution-modes)
@@ -144,16 +144,37 @@ invoice_processing_report.xlsx
 
 ---
 
-## 📸 Screenshots & Visual Tour
+## 📸 Project Screenshots
 
-To provide visual previews of the generated reports and execution runs, screenshots are stored in the [`assets/screenshots/`](assets/screenshots/) directory.
+Visual documentation illustrating the end-to-end integration between UiPath Studio, the FastAPI backend, and the generated audit deliverables.
 
-### Visual Preview Placeholders
+### 1. UiPath RPA Workflow Sequence
+The primary sequence in UiPath Studio demonstrating cross-platform robotic orchestration on macOS: checking file presence, sending an HTTP POST request to the local FastAPI daemon, receiving the JSON response, and deserializing output metrics.
 
-#### 1. Executive Audit Summary Dashboard
-> Displays the high-level KPI cards, execution status, and breakdown table.
+![UiPath RPA Workflow](assets/screenshots/uipath-workflow.png)
+
+---
+
+### 2. UiPath Variables & Data Manager
+Configuration of automation variables within UiPath Studio Data Manager, defining types (`HttpResponseSummary`, `JObject`, `Int32`, `Double`, `String`) and scopes across the execution pipeline.
+
+![UiPath Variables and Data Manager](assets/screenshots/uipath-variables.png)
+
+---
+
+### 3. Successful Execution & Output Trace
+Real-time UiPath Studio Output console trace verifying automated batch completion: 18 invoices processed (5 approved, 13 rejected with categorized reasons), dollar totals calculated, and target report path verified.
+
+![Successful Execution Output](assets/screenshots/successful-execution.png)
+
+---
+
+### 4. Generated Excel Audit Report
+Multi-sheet executive Excel workbook featuring the executive KPI dashboard, emerald-themed ERP-ready valid invoices, and crimson-annotated rejection logs.
+
+> ⚠️ **Screenshot Placeholder**: `excel-audit-report.png` is pending capture.
 >
-> *(Place screenshot at `assets/screenshots/audit_summary.png`)*
+> *(To complete this visual, take a screenshot of `data/output/sample_output_report.xlsx` and save it to `assets/screenshots/excel-audit-report.png`)*
 
 ```text
 +----------------------------------------------------------------------------------------------------+
@@ -164,42 +185,35 @@ To provide visual previews of the generated reports and execution runs, screensh
 +----------------------------------------------------------------------------------------------------+
 ```
 
-#### 2. Valid Invoices Sheet (ERP-Ready)
-> Clean dataset with emerald headers and accounting currency formatting.
+---
+
+### 5. FastAPI Interactive Documentation (Swagger UI)
+Interactive API playground available at `http://127.0.0.1:8000/docs`, documenting request schemas, parameters, and status response contracts for the `/process` and `/health` endpoints.
+
+> ⚠️ **Screenshot Placeholder**: `fastapi-docs.png` is pending capture.
 >
-> *(Place screenshot at `assets/screenshots/valid_invoices.png`)*
+> *(To complete this visual, run `python api.py`, open `http://127.0.0.1:8000/docs` in your browser, and save the screenshot to `assets/screenshots/fastapi-docs.png`)*
 
-#### 3. Rejected Invoices Sheet (Defect Annotation)
-> Records flagged with specific error explanations.
+---
+
+### 6. API Error Handling & Validation Boundary
+Demonstration of HTTP 404 (file not found) and HTTP 400 (corrupt workbook or schema mismatch) error responses caught and structured gracefully by the API boundary.
+
+> ⚠️ **Screenshot Placeholder**: `error-handling.png` is pending capture.
 >
-> *(Place screenshot at `assets/screenshots/rejected_invoices.png`)*
+> *(To complete this visual, trigger a 404/400 test or capture Swagger UI error response, and save it to `assets/screenshots/error-handling.png`)*
 
-#### 4. Terminal & CLI Execution
-> CLI output displaying structured execution logs and JSON summary output.
->
-> *(Place screenshot at `assets/screenshots/cli_execution.png`)*
+---
 
-### 📷 Instructions for Adding Screenshots
+### 📷 Instructions for Capturing Remaining Screenshots
 
-If you customize this bot and want to refresh the documentation screenshots:
-
-1. **Run the processor** to generate the latest report:
-   ```bash
-   python main.py
-   ```
-2. Open `data/output/invoice_processing_report.xlsx` in Excel, Numbers, or LibreOffice.
-3. Take high-resolution screenshots of:
-   - **Sheet 1**: `Audit Summary` -> Save as `assets/screenshots/audit_summary.png`
-   - **Sheet 2**: `Valid Invoices` -> Save as `assets/screenshots/valid_invoices.png`
-   - **Sheet 3**: `Rejected Invoices` -> Save as `assets/screenshots/rejected_invoices.png`
-4. Take a terminal screenshot of the CLI execution -> Save as `assets/screenshots/cli_execution.png`.
-5. Link them in this section using standard GitHub markdown:
-   ```markdown
-   ![Audit Summary](assets/screenshots/audit_summary.png)
-   ![Valid Invoices](assets/screenshots/valid_invoices.png)
-   ![Rejected Invoices](assets/screenshots/rejected_invoices.png)
-   ![CLI Run](assets/screenshots/cli_execution.png)
-   ```
+1. **Excel Report (`excel-audit-report.png`)**:
+   Open `data/output/sample_output_report.xlsx` in Excel, Numbers, or LibreOffice and capture the `Audit Summary` dashboard sheet.
+2. **FastAPI Swagger Docs (`fastapi-docs.png`)**:
+   Run `python api.py` in your terminal, open [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) in your browser, expand the `POST /process` endpoint, and take a screenshot.
+3. **API Error Handling (`error-handling.png`)**:
+   Send a request with an invalid file path via Swagger UI or curl, and capture the returned `404 Not Found` or `400 Bad Request` JSON response.
+4. Save the image files with their exact respective names in [`assets/screenshots/`](assets/screenshots/). They will immediately render in the README.
 
 ---
 
@@ -216,7 +230,10 @@ invoice-rpa-project/
 │
 ├── assets/
 │   └── screenshots/                       # Visual assets and documentation screenshots
-│       └── .gitkeep
+│       ├── .gitkeep
+│       ├── uipath-workflow.png            # UiPath Studio automation sequence
+│       ├── uipath-variables.png           # UiPath Data Manager & variable scopes
+│       └── successful-execution.png       # Real-time execution output trace
 │
 ├── data/
 │   ├── input/
