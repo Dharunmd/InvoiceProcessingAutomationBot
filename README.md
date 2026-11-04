@@ -25,10 +25,12 @@ Engineered for seamless standalone CLI operations and native integration with en
 - [🚀 Execution Modes](#-execution-modes)
   - [1. CLI Mode](#1-cli-mode)
   - [2. Python API Mode (UiPath Python Scope)](#2-python-api-mode-uipath-python-scope)
-  - [3. Sample Data Generator](#3-sample-data-generator)
+  - [3. Local REST API Mode (FastAPI & UiPath HTTP Request)](#3-local-rest-api-mode-fastapi--uipath-http-request)
+  - [4. Sample Data Generator](#4-sample-data-generator)
 - [🧪 Automated Test Suite](#-automated-test-suite)
 - [🤖 RPA Orchestrator Integration Guide](#-rpa-orchestrator-integration-guide)
-  - [UiPath Studio](#uipath-studio)
+  - [UiPath Studio (HTTP Request - Recommended for macOS)](#uipath-studio-http-request---recommended-for-macos)
+  - [UiPath Studio (Start Process / Python Scope)](#uipath-studio-start-process--python-scope)
   - [Power Automate Desktop](#power-automate-desktop)
 - [📜 Logging & Audit Trail](#-logging--audit-trail)
 - [🛡️ Security & Read-Only Ingestion Guarantee](#️-security--read-only-ingestion-guarantee)
@@ -208,8 +210,9 @@ invoice-rpa-project/
 ├── .gitignore                             # Comprehensive Git exclusion rules
 ├── LICENSE                                # MIT open-source license
 ├── README.md                              # Complete architecture, setup, and usage guide
+├── api.py                                 # Local FastAPI REST server (127.0.0.1) for UiPath HTTP Request
 ├── main.py                                # Dual CLI and UiPath Python Scope entrypoint
-├── requirements.txt                       # Production dependencies (pandas, openpyxl, pytest)
+├── requirements.txt                       # Production dependencies (pandas, openpyxl, fastapi, uvicorn, pytest)
 │
 ├── assets/
 │   └── screenshots/                       # Visual assets and documentation screenshots
@@ -242,6 +245,7 @@ invoice-rpa-project/
 └── tests/
     ├── __init__.py                        # Package marker
     ├── conftest.py                        # Pytest fixtures and mock dataset factories
+    ├── test_api.py                        # FastAPI REST endpoint (/process & /health) tests
     ├── test_reader.py                     # Ingestion tests (corrupt, empty, missing, schema)
     ├── test_validator.py                  # Rule tests (missing IDs, duplicate all, invalid amounts)
     └── test_processor.py                  # Integration and Excel report generation tests
@@ -349,7 +353,105 @@ print(result)
 
 ---
 
-### 3. Sample Data Generator
+### 3. Local REST API Mode (FastAPI & UiPath HTTP Request)
+
+For native cross-platform orchestration (especially on **macOS** where UiPath Studio interacts seamlessly over HTTP):
+
+#### Start the Local API Server
+The server binds exclusively to `127.0.0.1` for local, secure access:
+```bash
+python api.py
+```
+Or directly with Uvicorn:
+```bash
+uvicorn api:app --host 127.0.0.1 --port 8000
+```
+
+Once running:
+- **Interactive OpenAPI / Swagger UI**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **Interactive ReDoc Documentation**: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+
+#### Testing the API with `curl`
+
+##### 1. Health Check
+```bash
+curl http://127.0.0.1:8000/health
+```
+**Response (200 OK):**
+```json
+{
+  "status": "healthy",
+  "service": "InvoiceProcessingAutomationBot"
+}
+```
+
+##### 2. Process Batch (Default Sample Invoices)
+```bash
+curl -X POST http://127.0.0.1:8000/process \
+     -H "Content-Type: application/json" \
+     -d '{}'
+```
+
+##### 3. Process Batch (Custom Input & Output Paths)
+```bash
+curl -X POST http://127.0.0.1:8000/process \
+     -H "Content-Type: application/json" \
+     -d '{
+       "input_path": "data/input/sample_invoices.xlsx",
+       "output_path": "data/output/invoice_processing_report.xlsx"
+     }'
+```
+
+**Successful Response (200 OK):**
+```json
+{
+  "success": true,
+  "execution_status": "PARTIAL_SUCCESS",
+  "start_time": "2026-11-03 13:11:42 UTC",
+  "end_time": "2026-11-03 13:11:42 UTC",
+  "duration_seconds": 0.022,
+  "total_records": 18,
+  "valid_count": 5,
+  "valid_total_amount": 14055.75,
+  "rejected_count": 13,
+  "rejected_total_amount": 14600.0,
+  "rejection_breakdown": {
+    "Duplicate Invoice ID (all occurrences rejected)": 7,
+    "Missing or empty Invoice ID": 3,
+    "Amount must be a positive numeric value (> 0)": 5
+  },
+  "output_file_path": "/Users/.../data/output/invoice_processing_report.xlsx",
+  "input_file": "/Users/.../data/input/sample_invoices.xlsx"
+}
+```
+
+##### 4. Error Responses
+If the file is not found (`404 Not Found`):
+```json
+{
+  "success": false,
+  "execution_status": "FAILED",
+  "error_type": "InputFileNotFoundError",
+  "error_message": "Input file not found at path: /path/to/missing.xlsx",
+  "input_file": "/path/to/missing.xlsx",
+  "duration_seconds": 0.001
+}
+```
+If the file is corrupted or columns are missing (`400 Bad Request`):
+```json
+{
+  "success": false,
+  "execution_status": "FAILED",
+  "error_type": "MissingColumnError",
+  "error_message": "Input file is missing required column(s): Amount",
+  "input_file": "/path/to/bad.xlsx",
+  "duration_seconds": 0.002
+}
+```
+
+---
+
+### 4. Sample Data Generator
 
 To generate a new batch of synthetic test invoices containing various defect permutations:
 ```bash
@@ -374,6 +476,13 @@ pytest -v --tb=short
 
 ### Coverage Highlights
 
+- **`tests/test_api.py`**:
+  - `test_health_check`: Validates HTTP 200 and healthy bot state on `/health`.
+  - `test_process_default_payload`: Tests end-to-end processing with default request payload.
+  - `test_process_custom_paths`: Tests custom input/output routing through `/process`.
+  - `test_process_input_file_not_found`: Validates HTTP 404 response on missing file.
+  - `test_process_corrupted_file`: Validates HTTP 400 response on damaged file.
+  - `test_process_missing_column`: Validates HTTP 400 response on schema mismatch.
 - **`tests/test_reader.py`**:
   - `test_read_valid_excel`: Standard ingestion and dataframe conversion.
   - `test_input_file_not_found`: `InputFileNotFoundError` verification.
@@ -400,7 +509,33 @@ pytest -v --tb=short
 
 ### UiPath Studio
 
-#### Method 1: Start Process Activity (CLI)
+#### Method 1: HTTP Request Activity (Recommended for macOS & Cross-Platform)
+On macOS, running local Python scripts via .NET Windows activities is not supported in UiPath Studio Web / Cross-Platform workflows. The **HTTP Request** activity communicates directly with the local FastAPI server:
+
+1. **Start the local API daemon** (or run as background service):
+   ```bash
+   python api.py
+   ```
+2. In UiPath Studio, install the **UiPath.WebAPI.Activities** package.
+3. Drag in an **HTTP Request** activity and configure:
+   - **Endpoint**: `"http://127.0.0.1:8000/process"`
+   - **Method**: `POST`
+   - **BodyFormat**: `"application/json"`
+   - **Request Body**:
+     ```text
+     "{""input_path"": ""/Users/username/Invoices/batch.xlsx"", ""output_path"": ""/Users/username/Reports/report.xlsx""}"
+     ```
+   - **Response Content**: Create string variable `responseString`.
+   - **Status Code**: Create int variable `statusCode`.
+4. Add a **Deserialize JSON** activity targeting `responseString` to extract:
+   - `resultObj("valid_count").ToString`
+   - `resultObj("rejected_count").ToString`
+   - `resultObj("output_file_path").ToString`
+5. Branch workflow based on `statusCode` (e.g. `200` = success, `400`/`404` = throw RPA business/system exception).
+
+---
+
+#### Method 2: Start Process Activity (CLI)
 1. Add a **Start Process** activity.
 2. Set properties:
    - **FileName**: Path to your Python executable (e.g. `C:\RPA\InvoiceBot\.venv\Scripts\python.exe` or `python`).
@@ -408,7 +543,7 @@ pytest -v --tb=short
    - **WorkingDirectory**: `"C:\RPA\InvoiceBot"`
 3. Check the process exit code (`0` = Success / Partial Success, `1` = Failure).
 
-#### Method 2: Python Scope Activity (Direct In-Memory Invocation)
+#### Method 3: Python Scope Activity (Direct In-Memory Invocation)
 1. Drag in a **Python Scope** activity pointing to your Python installation folder.
 2. Inside the scope:
    - Use **Load Python Script** targeting `main.py`.
