@@ -122,3 +122,35 @@ def test_execute_process_end_to_end(temp_excel_builder):
 
     finally:
         out_path.unlink(missing_ok=True)
+
+
+def test_pipeline_rejects_report_or_log_alias(valid_invoice_df, temp_excel_builder, tmp_path):
+    source = temp_excel_builder(valid_invoice_df)
+    original = source.read_bytes()
+    alias = tmp_path / "alias.xlsx"
+    alias.hardlink_to(source)
+    for report, log in [(alias, tmp_path / "run.log"), (tmp_path / "report.xlsx", alias)]:
+        result = execute_process(source, report, log)
+        assert result["error_type"] == "ConflictingPathsError"
+        assert source.read_bytes() == original
+
+
+def test_failed_save_preserves_existing_report(
+    valid_invoice_df, temp_excel_builder, tmp_path, monkeypatch,
+):
+    from openpyxl import Workbook
+
+    source = temp_excel_builder(valid_invoice_df)
+    report = tmp_path / "report.xlsx"
+    log = tmp_path / "run.log"
+    assert execute_process(source, report, log)["success"]
+    original = report.read_bytes()
+
+    def fail_after_writing(workbook, path):
+        path.write_bytes(b"partial file")
+        raise OSError("Simulated report write failure")
+
+    monkeypatch.setattr(Workbook, "save", fail_after_writing)
+    assert not execute_process(source, report, log)["success"]
+    assert report.read_bytes() == original
+    assert list(tmp_path.glob("*.xlsx")) == [report]

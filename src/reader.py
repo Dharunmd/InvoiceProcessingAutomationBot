@@ -29,7 +29,7 @@ def read_invoice_excel(file_path: Path | str) -> pd.DataFrame:
     modifications to the source file.
 
     Args:
-        file_path: Path to the input Excel file (.xlsx or .xls).
+        file_path: Path to the input Excel file (.xlsx).
 
     Returns:
         pd.DataFrame containing the raw ingested data.
@@ -51,7 +51,8 @@ def read_invoice_excel(file_path: Path | str) -> pd.DataFrame:
     # Ingest data using pandas with openpyxl engine
     try:
         logger.info(f"Reading Excel file: {path} (read-only mode)")
-        df = pd.read_excel(path, engine="openpyxl")
+        # Preserve Excel text cells, including leading zeros in identifiers.
+        df = pd.read_excel(path, engine="openpyxl", dtype=object)
     except (BadZipFile, InvalidFileException, ValueError, OSError) as exc:
         err_msg = f"Excel file at {path} is corrupted or in an invalid format: {exc}"
         logger.error(err_msg)

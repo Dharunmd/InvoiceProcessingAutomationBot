@@ -7,6 +7,7 @@ Guarantees the input file is never touched.
 
 import logging
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 from openpyxl import Workbook
@@ -27,9 +28,13 @@ ALERT_FILL = "FFEBEE"
 BORDER_GRAY = "D1D5DB"
 
 
+_THIN_SIDE = Side(border_style="thin", color=BORDER_GRAY)
+_CELL_BORDER = Border(top=_THIN_SIDE, left=_THIN_SIDE, right=_THIN_SIDE, bottom=_THIN_SIDE)
+_BODY_FONT = Font(name="Calibri")
+
+
 def _apply_border(cell) -> None:
-    thin = Side(border_style="thin", color=BORDER_GRAY)
-    cell.border = Border(top=thin, left=thin, right=thin, bottom=thin)
+    cell.border = _CELL_BORDER
 
 
 def _auto_adjust_column_widths(ws) -> None:
@@ -77,7 +82,7 @@ def _build_summary_sheet(ws, audit_summary: dict[str, Any]) -> None:
         ws.cell(row=curr_row, column=1, value=key).font = Font(name="Calibri", bold=True)
         ws.cell(row=curr_row, column=1).fill = PatternFill(start_color=LIGHT_GRAY_FILL, fill_type="solid")
         val_cell = ws.cell(row=curr_row, column=2, value=val)
-        val_cell.font = Font(name="Calibri")
+        val_cell.font = _BODY_FONT
         if key == "Execution Status":
             status_color = "1E7E34" if val == "SUCCESS" else ("D97706" if val == "PARTIAL_SUCCESS" else "DC2626")
             val_cell.font = Font(name="Calibri", bold=True, color=status_color)
@@ -188,7 +193,7 @@ def _build_data_sheet(
 
         for col_idx, col_name in enumerate(headers, start=1):
             cell = ws.cell(row=curr_row, column=col_idx)
-            cell.font = Font(name="Calibri")
+            cell.font = _BODY_FONT
             _apply_border(cell)
 
             # Amount currency formatting
@@ -233,7 +238,6 @@ def generate_excel_report(
     """
     logger.info(f"Generating Excel report at target path: {output_path}")
     target_path = Path(output_path)
-    target_path.parent.mkdir(parents=True, exist_ok=True)
 
     wb = Workbook()
 
@@ -249,6 +253,15 @@ def generate_excel_report(
     ws_rejected = wb.create_sheet(title="Rejected Invoices")
     _build_data_sheet(ws_rejected, rejected_df, "Rejected Invoices", CRIMSON_HEADER, highlight_rejection_col=True)
 
-    wb.save(target_path)
+    # Stage the workbook on the same filesystem so replacement is atomic.
+    destination = target_path.resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(dir=destination.parent, suffix=".xlsx", delete=False) as staged:
+        staged_path = Path(staged.name)
+    try:
+        wb.save(staged_path)
+        staged_path.replace(destination)
+    finally:
+        staged_path.unlink(missing_ok=True)
     logger.info(f"Successfully saved processing report to {target_path}")
     return target_path

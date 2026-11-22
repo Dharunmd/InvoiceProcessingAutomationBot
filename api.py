@@ -327,7 +327,10 @@ def process_invoice_batch(request: ProcessRequest | None = None) -> dict[str, An
 
         if error_type == "InputFileNotFoundError":
             http_status = status.HTTP_404_NOT_FOUND
-        elif error_type in ("CorruptedExcelError", "EmptyWorkbookError", "MissingColumnError"):
+        elif error_type in (
+            "CorruptedExcelError", "EmptyWorkbookError", "MissingColumnError",
+            "ConflictingPathsError",
+        ):
             http_status = status.HTTP_400_BAD_REQUEST
         else:
             http_status = status.HTTP_500_INTERNAL_SERVER_ERROR
