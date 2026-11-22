@@ -27,3 +27,7 @@ class EmptyWorkbookError(InvoiceProcessingError):
 class MissingColumnError(InvoiceProcessingError):
     """Raised when required schema columns are missing from the input Excel sheet."""
     pass
+
+
+class ConflictingPathsError(InvoiceProcessingError):
+    """Raised when input, report, or log paths refer to the same file."""
