@@ -110,3 +110,26 @@ def test_input_file_never_modified(valid_invoice_df, temp_excel_builder):
         hash_after = hashlib.sha256(f.read()).hexdigest()
 
     assert hash_before == hash_after, "Input file was modified during reading!"
+
+
+def test_text_ids_remain_distinct_in_report(valid_invoice_df, temp_excel_builder, tmp_path):
+    from openpyxl import load_workbook
+    from main import execute_process
+
+    valid_invoice_df["Invoice ID"] = ["00123", "123", "123"]
+    source = temp_excel_builder(valid_invoice_df)
+    report = tmp_path / "report.xlsx"
+    result = execute_process(source, report, tmp_path / "run.log")
+    assert result["valid_count"] == 1
+    assert result["rejected_count"] == 2
+    workbook = load_workbook(report, read_only=True)
+    try:
+        for sheet, expected in [
+            ("Valid Invoices", ["00123"]),
+            ("Rejected Invoices", ["123", "123"]),
+        ]:
+            rows = workbook[sheet].values
+            id_column = next(rows).index("Invoice ID")
+            assert [row[id_column] for row in rows] == expected
+    finally:
+        workbook.close()
