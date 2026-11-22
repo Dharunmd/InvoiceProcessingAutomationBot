@@ -1,18 +1,26 @@
 # InvoiceProcessingAutomationBot 🤖📊
 
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-33%20passed%20%7C%20100%25-brightgreen.svg)](tests/)
-[![Render Deploy](https://img.shields.io/badge/Render-Cloud%20Ready-46E3B7?logo=render&logoColor=white)](render.yaml)
-[![RPA Compatibility](https://img.shields.io/badge/RPA%20Ready-UiPath%20%7C%20Power%20Automate%20%7C%20Blue%20Prism-orange.svg)](#-rpa-orchestrator-integration-guide)
-[![Code Style](https://img.shields.io/badge/code%20style-PEP%208-informational.svg)](https://peps.python.org/pep-0008/)
-[![Platform](https://img.shields.io/badge/platform-Cloud%20(Render)%20%7C%20macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](README.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Tests](https://github.com/Dharunmd/InvoiceProcessingAutomationBot/actions/workflows/tests.yml/badge.svg)](https://github.com/Dharunmd/InvoiceProcessingAutomationBot/actions/workflows/tests.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An enterprise-grade **Robotic Process Automation (RPA)** Python engine and **FastAPI Cloud Web Service** designed to ingest, validate, audit, and segregate batch Excel invoices with zero mutation to source files.
+Validate a batch of Excel invoices before importing it into an accounting system. The bot checks IDs and amounts, rejects every occurrence of a duplicate ID, and writes a workbook with an audit summary, accepted rows, and rejected rows with reasons. Run it locally or call the FastAPI service from UiPath.
 
-Supports dual operational architectures:
-1. **Cloud REST API (Render / Containerized)**: Upload Excel workbooks via `multipart/form-data` and download formatted 3-sheet Excel audit reports from remote orchestrators.
-2. **Local RPA Execution**: Direct CLI execution, in-memory Python Scope calls, or loopback REST calls for desktop automation.
+## Try the sample
+
+From a fresh clone on macOS or Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python main.py -i data/input/sample_invoices.xlsx -o data/output/demo.xlsx
+```
+
+Open `data/output/demo.xlsx`. The included sample has 18 rows. Five pass validation and 13 are rejected. A row can have multiple rejection reasons, so the reason counts can exceed 13.
+
+Store identifiers with significant leading zeros as **text** in Excel. For example, text IDs `00123` and `123` are distinct. A numeric cell that displays leading zeros through Excel formatting stores only its numeric value.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) to reproduce an issue or test a change.
 
 ---
 
@@ -46,7 +54,7 @@ Supports dual operational architectures:
 ## 🌟 Key Highlights
 
 1. **Cloud-Ready File Upload & Download**: Eliminates local file-path dependencies through secure `multipart/form-data` file streaming and unique processing ID tokens.
-2. **Strictly Read-Only Ingestion**: Reads Excel workbooks without modifying source inputs, maintaining cryptographic hash verification for total data integrity.
+2. **Strictly Read-Only Ingestion**: Reads source workbooks without saving changes. Input, report, and log paths must point to different files.
 3. **Aggressive Duplicate Prevention**: Automatically flags and rejects **every single occurrence** of duplicate Invoice IDs across the batch (`keep=False`), preventing duplicate or fraudulent ERP disbursements.
 4. **Multi-Reason Defect Capture**: Aggregates all applicable failure reasons per record (e.g. invalid balance + missing invoice ID) rather than halting on first error.
 5. **Executive 3-Sheet Excel Workbook**:
@@ -71,7 +79,7 @@ Supports dual operational architectures:
 | **Data Processing** | [Pandas](https://pandas.pydata.org/) | `>= 2.2.0` | Vectorized validation & dataset segregation |
 | **Spreadsheet Engine** | [OpenPyXL](https://openpyxl.readthedocs.io/) | `>= 3.1.2` | Read-only Excel ingestion & report styling |
 | **Data Validation** | [Pydantic v2](https://docs.pydantic.dev/) | `>= 2.9.0` | Request & response schema contracts |
-| **Automated Testing** | [Pytest](https://docs.pytest.org/) & [HTTPX](https://www.python-httpx.org/) | `>= 8.0.0` | 33 comprehensive integration and unit tests |
+| **Automated Testing** | [Pytest](https://docs.pytest.org/) & [HTTPX](https://www.python-httpx.org/) | `>= 8.0.0` | API integration and unit tests |
 | **RPA Orchestrator** | [UiPath Studio](https://www.uipath.com/) | `Cross-Platform` | Automated robotic trigger & reporting pipeline |
 | **Cloud Hosting** | [Render](https://render.com/) | Free Web Service | Automated Git-backed continuous cloud deployment |
 
@@ -533,21 +541,13 @@ python scripts/generate_sample_data.py
 
 ## 🧪 Automated Test Suite
 
-Run the full automated test suite (33 tests covering positive flows, schema mismatches, corrupted files, and cloud upload/download operations):
+Run the same suite as CI from the repository root.
 
 ```bash
-pytest -v
+python -m pytest -q
 ```
 
-### Test Coverage Matrix (33 / 33 Passing)
-
-| Test Module | Tests | Scope |
-| :--- | :---: | :--- |
-| **`tests/test_cloud_api.py`** | 11 | Multipart file upload, extension checks, 10MB size enforcement, ZIP header verification, report download, 404 handling, path traversal security. |
-| **`tests/test_api.py`** | 6 | `/health` check, legacy `/process` path-based routing, error mappings (400, 404, 500). |
-| **`tests/test_reader.py`** | 7 | Cryptographic SHA-256 immutability test, whitespace stripping, corrupted zip detection, missing columns. |
-| **`tests/test_validator.py`** | 5 | Clean records, blank IDs, rejecting ALL duplicate occurrences (`keep=False`), negative/string amounts, combined multi-errors. |
-| **`tests/test_processor.py`** | 4 | Segregation into valid/rejected frames, duration/status metrics, 3-sheet Excel report formatting. |
+The suite covers Excel ingestion, identifier preservation, validation, report generation, and local and upload-based API flows.
 
 ---
 
@@ -572,7 +572,7 @@ Sample log snippet:
 - **Path Traversal Protection**: The `/download/{processing_id}` endpoint enforces regex validation (`^[a-zA-Z0-9_-]{8,64}$`), discarding any parent-directory sequences (`../`).
 - **File Upload Guardrails**: Enforces a strict 10 MB ceiling and validates the binary openXML zip header (`b"PK\x03\x04"`), rejecting spoofed extensions.
 - **Ephemeral Storage & Auto-Cleanup**: Uploaded files and generated reports are stored with randomized UUID identifiers and purged via background tasks after 1 hour.
-- **Zero Input Mutation**: All reads execute in read-only streaming mode, backed by cryptographic SHA-256 validation.
+- **Zero Input Mutation**: A regression test compares the input checksum before and after reading. Reports are staged and replace the destination only after a successful save.
 
 ---
 

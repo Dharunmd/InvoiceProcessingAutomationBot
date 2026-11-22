@@ -7,6 +7,7 @@ Supports both:
 
 import argparse
 from datetime import datetime, timezone
+from itertools import combinations
 import json
 import logging
 from pathlib import Path
@@ -24,7 +25,7 @@ from src.config import (
     DEFAULT_OUTPUT_FILE,
     STATUS_FAILED,
 )
-from src.exceptions import InvoiceProcessingError
+from src.exceptions import ConflictingPathsError, InvoiceProcessingError
 from src.logger import setup_logger
 from src.processor import process_invoices
 from src.reader import read_invoice_excel
@@ -53,15 +54,18 @@ def execute_process(
     resolved_output = Path(output_path) if output_path else DEFAULT_OUTPUT_FILE
     resolved_log = Path(log_path) if log_path else DEFAULT_LOG_FILE
 
-    # Initialize logger
-    logger = setup_logger(log_file=resolved_log)
-    logger.info("=" * 60)
-    logger.info("InvoiceProcessingAutomationBot execution started")
-    logger.info(f"Input File:  {resolved_input}")
-    logger.info(f"Output File: {resolved_output}")
-    logger.info("=" * 60)
-
+    logger = logging.getLogger("InvoiceProcessingBot")
     try:
+        paths = (resolved_input, resolved_output, resolved_log)
+        for first, second in combinations(paths, 2):
+            if first.resolve() == second.resolve() or (
+                first.exists() and second.exists() and first.samefile(second)
+            ):
+                raise ConflictingPathsError("Input, report, and log must use different files.")
+
+        logger = setup_logger(log_file=resolved_log)
+        logger.info("Processing %s into %s", resolved_input, resolved_output)
+
         # Step 1: Read Excel file (strictly read-only)
         raw_df = read_invoice_excel(resolved_input)
 
